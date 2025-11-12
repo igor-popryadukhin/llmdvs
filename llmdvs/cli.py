@@ -107,12 +107,13 @@ def _load_llm(payload: dict):
         llm_type = llm_spec.get("type")
         if llm_type == "openai":
             return OpenAIReActLLM(
-                model=llm_spec.get("model", "gpt-4o-mini"),
+                model=llm_spec.get("model", "gpt-5-codex"),
                 temperature=float(llm_spec.get("temperature", 0.2)),
                 system_prompt=llm_spec.get("system_prompt"),
                 api_key=llm_spec.get("api_key"),
                 max_history=int(llm_spec.get("max_history", 6)),
                 reflection_limit=int(llm_spec.get("reflection_limit", 5)),
+                use_responses_api=llm_spec.get("use_responses_api"),
             )
     plan = payload.get("plan", []) if isinstance(payload, dict) else []
     if not plan:

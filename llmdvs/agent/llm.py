@@ -68,6 +68,7 @@ class OpenAIReActLLM:
         api_key: Optional[str] = None,
         max_history: int = 6,
         reflection_limit: int = 5,
+        use_responses_api: Optional[bool] = None,
     ) -> None:
         key = api_key or os.environ.get("OPENAI_API_KEY")
         if not key:
@@ -80,6 +81,10 @@ class OpenAIReActLLM:
         self.system_prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
         self.max_history = max_history
         self.reflection_limit = reflection_limit
+        if use_responses_api is None:
+            self._use_responses_api = model.startswith(("gpt-5", "o1", "gpt-4.1"))
+        else:
+            self._use_responses_api = bool(use_responses_api)
         self._reflections: List[str] = []
 
     async def propose_action(self, goal: Goal, memory: SessionMemory) -> ActionRequest:
@@ -102,6 +107,21 @@ class OpenAIReActLLM:
 
     async def _complete(self, messages: Sequence[Dict[str, str]]) -> str:
         def _call() -> str:
+            if self._use_responses_api:
+                response = self.client.responses.create(
+                    model=self.model,
+                    temperature=self.temperature,
+                    response_format={"type": "json_object"},
+                    input=[
+                        {
+                            "role": message["role"],
+                            "content": [{"type": "text", "text": message["content"]}],
+                        }
+                        for message in messages
+                    ],
+                )
+                return self._extract_text_from_responses(response)
+
             response = self.client.chat.completions.create(
                 model=self.model,
                 temperature=self.temperature,
@@ -207,4 +227,24 @@ class OpenAIReActLLM:
         if "type" not in data and "action" in data:
             data = data["action"] | {"thought": data.get("thought"), "postcondition": data.get("postcondition")}
         return data
+
+    @staticmethod
+    def _extract_text_from_responses(response: Any) -> str:
+        output = getattr(response, "output", None)
+        if output:
+            for item in output:
+                if getattr(item, "type", None) != "message":
+                    continue
+                message = getattr(item, "message", None)
+                if not message:
+                    continue
+                for content in getattr(message, "content", []) or []:
+                    if getattr(content, "type", None) == "text":
+                        text = getattr(content, "text", "")
+                        if text:
+                            return text
+        text_output = getattr(response, "output_text", None)
+        if text_output:
+            return text_output
+        raise RuntimeError("OpenAI response did not include text output")
 

@@ -7,10 +7,11 @@
   },
   "llm": {
     "type": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5-codex",
     "temperature": 0.2,
     "max_history": 6,
-    "reflection_limit": 5
+    "reflection_limit": 5,
+    "use_responses_api": true
   },
   "ui": {
     "grid_rows": 28,

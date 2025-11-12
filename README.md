@@ -100,10 +100,11 @@ step autonomously:
   "constraints": {"max_steps": 80, "max_retries": 3},
   "llm": {
     "type": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5-codex",
     "temperature": 0.2,
     "max_history": 6,
-    "reflection_limit": 5
+    "reflection_limit": 5,
+    "use_responses_api": true
   }
 }
 ```
@@ -120,7 +121,11 @@ CLI flags (see above) or directly inside the scenario JSON via an optional
 {
   "goal": "Explore the catalog with a dense grid",
   "constraints": {"max_steps": 100},
-  "llm": {"type": "openai", "model": "gpt-4o-mini"},
+  "llm": {
+    "type": "openai",
+    "model": "gpt-5-codex",
+    "use_responses_api": true
+  },
   "ui": {
     "grid_rows": 28,
     "grid_cols": 20,
@@ -151,8 +156,9 @@ llmdvs/
   so that future iterations can plug in Tesseract/EasyOCR.
 * The default `StaticPlanLLM` executes deterministic plans, while
   `OpenAIReActLLM` integrates the GPT Responses API for self-directed
-  planning and self-critique loops. Both implementations conform to the
-  shared `LLMInterface` protocol.
+  planning and self-critique loops, automatically switching to the
+  Responses endpoint for GPT-5 and newer response-only models. Both
+  implementations conform to the shared `LLMInterface` protocol.
 
 Refer to the technical specification in the task description for the complete roadmap of future
 iterations.
