@@ -28,7 +28,37 @@ pip install -e .
 playwright install chromium
 ```
 
-## Running a Scenario
+## Launch Instructions
+
+1. (Optional) Create and activate a virtual environment before installing the
+   package:
+
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   ```
+
+2. Install the project and download the Chromium browser that Playwright
+   drives:
+
+   ```bash
+   pip install -e .
+   playwright install chromium
+   ```
+
+3. Run the CLI with a scenario file. You can use the provided
+   `examples/sample_catalog_plan.json` or craft your own:
+
+   ```bash
+   llmdvs run examples/sample_catalog_plan.json --headless \
+     --artifacts-dir artifacts/sample-run
+   ```
+
+   The command will launch Chromium (headless by default), execute the
+   scenario step by step, and write screenshots plus JSONL traces into the
+   `artifacts/sample-run` directory.
+
+## Creating a Scenario
 
 1. Create a scenario file that matches the specification:
 
