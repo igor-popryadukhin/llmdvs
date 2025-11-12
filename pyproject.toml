@@ -29,3 +29,7 @@ dev = [
 
 [project.scripts]
 llmdvs = "llmdvs.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["llmdvs*"]
+exclude = ["artifacts*"]
