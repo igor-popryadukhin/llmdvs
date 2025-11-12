@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,7 @@ from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
 from ..agent.state import ActionRequest, ActionResult, Observation
 from .extractors import DOMExtractor, SchemaValidationError
+from .cursor import cursor_init_script, cursor_move_script
 from .grid import GridSpec, overlay_script
 
 logger = structlog.get_logger(__name__)
@@ -53,6 +55,7 @@ class PlaywrightToolset:
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
+        self._cursor_last_position = (viewport_width / 2, viewport_height / 2)
 
     async def __aenter__(self) -> "PlaywrightToolset":
         await self.start()
@@ -73,6 +76,8 @@ class PlaywrightToolset:
         await self.page.set_viewport_size(
             {"width": self.viewport_width, "height": self.viewport_height}
         )
+        await self.page.add_init_script(cursor_init_script())
+        await self.page.evaluate(cursor_init_script())
         logger.info("playwright_started", headless=self.headless)
 
     async def close(self) -> None:
@@ -128,6 +133,7 @@ class PlaywrightToolset:
         if jitter:
             page_x += random.uniform(-3, 3)
             page_y += random.uniform(-3, 3)
+        await self._animate_cursor(page_x, page_y, info)
         await self.page.mouse.click(page_x, page_y, delay=action.args.get("delay", 50))
         await asyncio.sleep(action.args.get("post_delay", 0.3))
         return {"clicked": {"cell": cell, "page_x": page_x, "page_y": page_y}}
@@ -138,6 +144,8 @@ class PlaywrightToolset:
         y = action.args.get("y")
         if x is None or y is None:
             raise ValueError("CLICK_XY requires 'x' and 'y'")
+        info = await self._ensure_metrics()
+        await self._animate_cursor(x, y, info)
         await self.page.mouse.click(x, y, delay=action.args.get("delay", 50))
         await asyncio.sleep(action.args.get("post_delay", 0.3))
         return {"clicked": {"x": x, "y": y}}
@@ -161,6 +169,7 @@ class PlaywrightToolset:
                 info.scroll_x,
                 info.scroll_y,
             )
+            await self._animate_cursor(page_x, page_y, info)
             await self.page.mouse.click(page_x, page_y)
             await asyncio.sleep(0.2)
             await self.page.keyboard.type(text)
@@ -237,6 +246,29 @@ class PlaywrightToolset:
             scroll_x=float(metrics["scrollX"]),
             scroll_y=float(metrics["scrollY"]),
         )
+
+    async def _animate_cursor(self, page_x: float, page_y: float, info: ScreenshotInfo) -> None:
+        assert self.page
+        await self.page.add_init_script(cursor_init_script())
+        await self.page.evaluate(cursor_init_script())
+        viewport_width = info.width / info.dpr
+        viewport_height = info.height / info.dpr
+        viewport_x = max(0.0, min(page_x - info.scroll_x, viewport_width))
+        viewport_y = max(0.0, min(page_y - info.scroll_y, viewport_height))
+        distance = math.hypot(
+            viewport_x - self._cursor_last_position[0],
+            viewport_y - self._cursor_last_position[1],
+        )
+        # Target roughly 1200 CSS pixels per second with min/max guardrails.
+        duration = min(0.45, max(0.12, distance / 1200.0))
+        moved = await self.page.evaluate(
+            cursor_move_script(), viewport_x, viewport_y, duration
+        )
+        if not moved:
+            await self.page.evaluate(cursor_init_script())
+            await self.page.evaluate(cursor_move_script(), viewport_x, viewport_y, duration)
+        self._cursor_last_position = (viewport_x, viewport_y)
+        await asyncio.sleep(duration)
 
     async def _capture_observation(self) -> Observation:
         assert self.page
