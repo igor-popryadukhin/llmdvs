@@ -111,7 +111,6 @@ class OpenAIReActLLM:
                 response = self.client.responses.create(
                     model=self.model,
                     temperature=self.temperature,
-                    response_format={"type": "json_object"},
                     input=[
                         {
                             "role": message["role"],
