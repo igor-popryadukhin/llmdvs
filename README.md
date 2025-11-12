@@ -59,10 +59,10 @@ playwright install chromium
    llmdvs run examples/sample_catalog_plan.json --headless
    ```
 
-   The command launches Chromium, executes the scenario step by step, and
-   writes screenshots plus JSONL traces into the default `artifacts/`
-   directory defined in `AgentConfig`. Override the viewport and overlay
-   sizing from the CLI when necessary, for example:
+The command launches Chromium, executes the scenario step by step, and
+writes screenshots plus JSONL traces into the default `artifacts/`
+directory defined in `AgentConfig`. Override the viewport and overlay
+sizing from the CLI when necessary, for example:
 
    ```bash
    llmdvs run examples/sample_openai_scenario.json \
@@ -90,6 +90,36 @@ playwright install chromium
   ]
 }
 ```
+
+### Custom DOM schemas
+
+Besides the bundled `catalog_list_v1` and `car_specs_v1` extractors, the
+agent can execute inline DOM extraction schemas defined directly inside a
+scenario step. Provide a mapping where each top-level key declares a
+collection with a CSS selector and any number of field descriptors. Field
+descriptors support `text`, `attribute`, `html`, and `value` types, nested
+properties, and `all: true` for returning every match.
+
+```json
+{
+  "action": "EXTRACT_DOM",
+  "args": {
+    "schema": {
+      "brands": {
+        "selector": "div.catalog-all-brands__item a",
+        "properties": {
+          "name": {"type": "text"},
+          "link": {"type": "attribute", "attribute": "href"}
+        }
+      }
+    }
+  }
+}
+```
+
+Nested descriptors may specify `single: true` (or `first: true`) to collapse a
+collection to its first match, while leaf descriptors accept optional
+`selector`, `trim`, and `keepEmpty` flags for fine-grained control.
 
 For adaptive runs, include an `llm` section so GPT plans and validates every
 step autonomously:

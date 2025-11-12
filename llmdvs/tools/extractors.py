@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from importlib import resources
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from jsonschema import Draft7Validator
 
@@ -21,15 +21,125 @@ class DOMExtractor:
     def __init__(self, page: Page) -> None:
         self.page = page
 
-    async def extract(self, schema: str) -> Any:
+    async def extract(self, schema: Union[str, Dict[str, Any]]) -> Any:
+        if isinstance(schema, str):
+            payload = await self._extract_named_schema(schema)
+            self._validate_schema(schema, payload)
+            return payload
+        if isinstance(schema, dict):
+            return await self._extract_custom_schema(schema)
+        raise TypeError("schema must be a string or mapping definition")
+
+    async def _extract_named_schema(self, schema: str) -> Any:
         if schema == "catalog_list_v1":
             payload = await self._extract_catalog_list()
         elif schema == "car_specs_v1":
             payload = await self._extract_car_specs()
         else:
             raise ValueError(f"Unsupported schema: {schema}")
-        self._validate_schema(schema, payload)
         return payload
+
+    async def _extract_custom_schema(self, schema: Dict[str, Any]) -> Any:
+        script = """
+        (schema) => {
+          const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
+
+          const extractField = (root, spec) => {
+            if (!isObject(spec)) {
+              return null;
+            }
+
+            const elements = (() => {
+              if (typeof spec.selector === 'string' && spec.selector.trim()) {
+                return Array.from(root.querySelectorAll(spec.selector));
+              }
+              return [root];
+            })();
+
+            if (isObject(spec.properties)) {
+              const records = elements.map((el) => {
+                const entry = {};
+                for (const [key, child] of Object.entries(spec.properties)) {
+                  entry[key] = extractField(el, child);
+                }
+                return entry;
+              }).filter((entry) => {
+                return Object.values(entry).some((value) => {
+                  if (value == null) {
+                    return false;
+                  }
+                  if (Array.isArray(value)) {
+                    return value.length > 0;
+                  }
+                  if (typeof value === 'string') {
+                    return value.trim().length > 0;
+                  }
+                  if (typeof value === 'object') {
+                    return Object.keys(value).length > 0;
+                  }
+                  return true;
+                });
+              });
+              if (spec.single || spec.first) {
+                return records[0] ?? null;
+              }
+              return records;
+            }
+
+            const projector = (el) => {
+              const type = spec.type || (spec.attribute ? 'attribute' : 'text');
+              if (type === 'attribute') {
+                const attr = spec.attribute;
+                if (!attr) {
+                  return null;
+                }
+                const value = el.getAttribute(attr);
+                return value === undefined ? null : value;
+              }
+              if (type === 'html') {
+                return el.innerHTML;
+              }
+              if (type === 'value') {
+                return 'value' in el ? el.value : null;
+              }
+              if (type === 'text') {
+                const text = el.textContent || '';
+                return spec.trim === false ? text : text.trim();
+              }
+              return null;
+            };
+
+            const values = elements.map(projector).filter((value) => {
+              if (value == null) {
+                return false;
+              }
+              if (typeof value === 'string') {
+                return spec.keepEmpty ? true : value.trim().length > 0;
+              }
+              return true;
+            });
+
+            if (spec.all) {
+              return values;
+            }
+            return values.length > 0 ? values[0] : null;
+          };
+
+          const walk = (root, definition) => {
+            if (!isObject(definition)) {
+              return null;
+            }
+            const result = {};
+            for (const [key, spec] of Object.entries(definition)) {
+              result[key] = extractField(root, spec);
+            }
+            return result;
+          };
+
+          return walk(document, schema);
+        }
+        """
+        return await self.page.evaluate(script, schema)
 
     async def _extract_catalog_list(self) -> List[Dict[str, Any]]:
         script = """
