@@ -114,7 +114,12 @@ class OpenAIReActLLM:
                     input=[
                         {
                             "role": message["role"],
-                            "content": [{"type": "text", "text": message["content"]}],
+                            "content": [
+                                {
+                                    "type": "input_text",
+                                    "text": message["content"],
+                                }
+                            ],
                         }
                         for message in messages
                     ],
@@ -238,7 +243,7 @@ class OpenAIReActLLM:
                 if not message:
                     continue
                 for content in getattr(message, "content", []) or []:
-                    if getattr(content, "type", None) == "text":
+                    if getattr(content, "type", None) in {"text", "output_text"}:
                         text = getattr(content, "text", "")
                         if text:
                             return text
