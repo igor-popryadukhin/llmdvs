@@ -14,7 +14,8 @@ queries or OCR, and validate its own progress using a self-critique loop.
   toolset wrapper with automatic screenshot capture and overlay rendering.
 * **Scenario execution** — Deterministic scenarios can be provided as JSON plans and executed via
   the CLI. Each step is represented by an action descriptor compatible with the action DSL from the
-  technical specification.
+  technical specification. Alternatively, scenarios can delegate planning and self-correction to an
+  OpenAI GPT model through the built-in ReAct planner.
 * **Structured extraction** — Built-in extractors target the `catalog_list_v1` and
   `car_specs_v1` schemas with validation powered by `jsonschema`.
 * **Tracing and artifacts** — Every action is stored in a JSONL trace along with rich observations
@@ -46,17 +47,21 @@ playwright install chromium
    playwright install chromium
    ```
 
-3. Run the CLI with a scenario file. You can use the provided
-   `examples/sample_catalog_plan.json` or craft your own:
+3. (Optional) Configure OpenAI credentials if you want the agent to plan its
+   own steps. Set the `OPENAI_API_KEY` environment variable or provide an API
+   key inside the scenario JSON `llm` block.
+
+4. Run the CLI with a scenario file. You can use the provided
+   `examples/sample_catalog_plan.json` (static plan) or the adaptive
+   `examples/sample_openai_scenario.json`:
 
    ```bash
-   llmdvs run examples/sample_catalog_plan.json --headless \
-     --artifacts-dir artifacts/sample-run
+   llmdvs run examples/sample_catalog_plan.json --headless
    ```
 
-   The command will launch Chromium (headless by default), execute the
-   scenario step by step, and write screenshots plus JSONL traces into the
-   `artifacts/sample-run` directory.
+   The command launches Chromium, executes the scenario step by step, and
+   writes screenshots plus JSONL traces into the default `artifacts/`
+   directory defined in `AgentConfig`.
 
 ## Creating a Scenario
 
@@ -79,10 +84,21 @@ playwright install chromium
 }
 ```
 
-2. Execute the plan with the CLI:
+For adaptive runs, include an `llm` section so GPT plans and validates every
+step autonomously:
 
-```bash
-llmdvs run scenario.json --headless
+```json
+{
+  "goal": "Audit the Toyota catalog page and collect pricing rows",
+  "constraints": {"max_steps": 80, "max_retries": 3},
+  "llm": {
+    "type": "openai",
+    "model": "gpt-4o-mini",
+    "temperature": 0.2,
+    "max_history": 6,
+    "reflection_limit": 5
+  }
+}
 ```
 
 Screenshots and trace logs are stored under `artifacts/` by default.
@@ -102,8 +118,10 @@ llmdvs/
 
 * OCR extraction is scaffolded but not yet implemented; the toolset raises a `NotImplementedError`
   so that future iterations can plug in Tesseract/EasyOCR.
-* The default `StaticPlanLLM` executes deterministic plans. Hooking up a real multimodal LLM only
-  requires implementing the `LLMInterface` protocol and providing ReAct-style prompts.
+* The default `StaticPlanLLM` executes deterministic plans, while
+  `OpenAIReActLLM` integrates the GPT Responses API for self-directed
+  planning and self-critique loops. Both implementations conform to the
+  shared `LLMInterface` protocol.
 
 Refer to the technical specification in the task description for the complete roadmap of future
 iterations.

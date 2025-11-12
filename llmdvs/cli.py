@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .agent.core import VisualScraperAgent
-from .agent.llm import StaticPlanLLM
+from .agent.llm import OpenAIReActLLM, StaticPlanLLM
 from .agent.state import AgentConfig, Goal
 from .tools.browser import PlaywrightToolset
 
@@ -44,8 +44,7 @@ def run(
     config = _config_from_constraints(data.get("constraints", {}))
     config.screenshot_dir.mkdir(parents=True, exist_ok=True)
 
-    plan = data.get("plan", [])
-    llm = StaticPlanLLM(plan)
+    llm = _load_llm(data)
 
     async def _runner() -> None:
         async with PlaywrightToolset(
@@ -67,6 +66,27 @@ def run(
                     console.print(f" • {err}")
 
     asyncio.run(_runner())
+
+
+def _load_llm(payload: dict):
+    llm_spec = payload.get("llm", {}) if isinstance(payload, dict) else {}
+    if isinstance(llm_spec, dict):
+        llm_type = llm_spec.get("type")
+        if llm_type == "openai":
+            return OpenAIReActLLM(
+                model=llm_spec.get("model", "gpt-4o-mini"),
+                temperature=float(llm_spec.get("temperature", 0.2)),
+                system_prompt=llm_spec.get("system_prompt"),
+                api_key=llm_spec.get("api_key"),
+                max_history=int(llm_spec.get("max_history", 6)),
+                reflection_limit=int(llm_spec.get("reflection_limit", 5)),
+            )
+    plan = payload.get("plan", []) if isinstance(payload, dict) else []
+    if not plan:
+        raise typer.BadParameter(
+            "Scenario must provide either a static plan or an 'llm' configuration."
+        )
+    return StaticPlanLLM(plan)
 
 
 if __name__ == "__main__":

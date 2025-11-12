@@ -1,0 +1,15 @@
+{
+  "goal": "Extract the first 10 catalog cards for brand=Toyota",
+  "constraints": {
+    "max_steps": 60,
+    "max_retries": 3,
+    "rate_limit": {"min_delay_ms": 800}
+  },
+  "llm": {
+    "type": "openai",
+    "model": "gpt-4o-mini",
+    "temperature": 0.2,
+    "max_history": 6,
+    "reflection_limit": 5
+  }
+}
