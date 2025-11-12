@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llmdvs"
+version = "0.1.0"
+description = "LLM-driven visual scraping prototype"
+authors = [{name = "LLMDVS"}]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "playwright>=1.40",
+    "pydantic>=2.5",
+    "typer>=0.9",
+    "rich>=13.0",
+    "structlog>=23.1",
+    "pillow>=10.0",
+    "tesserocr>=2.7.0; platform_system!='Windows'",
+    "jsonschema>=4.17",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[project.scripts]
+llmdvs = "llmdvs.cli:app"

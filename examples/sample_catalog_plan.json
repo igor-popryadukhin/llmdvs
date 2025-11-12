@@ -1,0 +1,15 @@
+{
+  "goal": "Navigate to example.com and capture catalog cards",
+  "constraints": {
+    "max_steps": 10,
+    "max_retries": 3,
+    "rate_limit": {"min_delay_ms": 500}
+  },
+  "plan": [
+    {"action": "NAVIGATE", "args": {"url": "https://example.com"}},
+    {"action": "WAIT", "args": {"for": "networkidle"}},
+    {"action": "SCROLL", "args": {"direction": "down", "amount": 400}},
+    {"action": "EXTRACT_DOM", "args": {"schema": "catalog_list_v1"}},
+    {"action": "END", "args": {"status": "success"}}
+  ]
+}
