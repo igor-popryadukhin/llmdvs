@@ -11,5 +11,10 @@
     "temperature": 0.2,
     "max_history": 6,
     "reflection_limit": 5
+  },
+  "ui": {
+    "grid_rows": 28,
+    "grid_cols": 18,
+    "viewport": {"width": 1680, "height": 1050}
   }
 }

@@ -33,8 +33,8 @@ class Goal(BaseModel):
 class AgentConfig(BaseModel):
     """Configurable parameters that control the agent behaviour."""
 
-    max_steps: int = 80
-    max_retries: int = 3
+    max_steps: int = 150
+    max_retries: int = 5
     min_delay_ms: int = 800
     screenshot_dir: Path = Field(default_factory=lambda: Path("artifacts"))
     log_path: Path = Field(default_factory=lambda: Path("artifacts") / "trace.jsonl")

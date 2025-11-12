@@ -61,7 +61,14 @@ playwright install chromium
 
    The command launches Chromium, executes the scenario step by step, and
    writes screenshots plus JSONL traces into the default `artifacts/`
-   directory defined in `AgentConfig`.
+   directory defined in `AgentConfig`. Override the viewport and overlay
+   sizing from the CLI when necessary, for example:
+
+   ```bash
+   llmdvs run examples/sample_openai_scenario.json \
+     --viewport-width 1680 --viewport-height 1050 \
+     --grid-rows 30 --grid-cols 18
+   ```
 
 ## Creating a Scenario
 
@@ -100,6 +107,30 @@ step autonomously:
   }
 }
 ```
+
+### Viewport and grid configuration
+
+The agent captures screenshots with a grid overlay so actions can be
+addressed by cell labels. By default, the grid is rendered with 24 rows and 16
+columns over a 1600×900 viewport. You can adjust these values either through
+CLI flags (see above) or directly inside the scenario JSON via an optional
+`ui` block:
+
+```json
+{
+  "goal": "Explore the catalog with a dense grid",
+  "constraints": {"max_steps": 100},
+  "llm": {"type": "openai", "model": "gpt-4o-mini"},
+  "ui": {
+    "grid_rows": 28,
+    "grid_cols": 20,
+    "viewport": {"width": 1720, "height": 1080}
+  }
+}
+```
+
+The CLI will merge CLI-specified overrides with the scenario file, allowing
+experimentation per target site without editing code.
 
 Screenshots and trace logs are stored under `artifacts/` by default.
 

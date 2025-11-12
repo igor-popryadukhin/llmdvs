@@ -36,6 +36,18 @@ def run(
     scenario: Path = typer.Argument(..., exists=True, help="Path to scenario JSON"),
     headless: bool = typer.Option(False, help="Run browser in headless mode"),
     user_agent: Optional[str] = typer.Option(None, help="Override browser User-Agent"),
+    grid_rows: Optional[int] = typer.Option(
+        None, help="Override grid rows for the viewport overlay"
+    ),
+    grid_cols: Optional[int] = typer.Option(
+        None, help="Override grid columns for the viewport overlay"
+    ),
+    viewport_width: Optional[int] = typer.Option(
+        None, help="Override viewport width for the browser window"
+    ),
+    viewport_height: Optional[int] = typer.Option(
+        None, help="Override viewport height for the browser window"
+    ),
 ) -> None:
     """Execute a scraping scenario from disk."""
     with scenario.open("r", encoding="utf-8") as stream:
@@ -46,11 +58,32 @@ def run(
 
     llm = _load_llm(data)
 
+    ui_config_raw = data.get("ui") if isinstance(data, dict) else None
+    if isinstance(ui_config_raw, dict):
+        ui_grid_rows = grid_rows or int(ui_config_raw.get("grid_rows", 24))
+        ui_grid_cols = grid_cols or int(ui_config_raw.get("grid_cols", 16))
+        viewport_cfg = ui_config_raw.get("viewport", {})
+        if isinstance(viewport_cfg, dict):
+            ui_viewport_width = viewport_width or int(viewport_cfg.get("width", 1600))
+            ui_viewport_height = viewport_height or int(viewport_cfg.get("height", 900))
+        else:
+            ui_viewport_width = viewport_width or 1600
+            ui_viewport_height = viewport_height or 900
+    else:
+        ui_grid_rows = grid_rows or 24
+        ui_grid_cols = grid_cols or 16
+        ui_viewport_width = viewport_width or 1600
+        ui_viewport_height = viewport_height or 900
+
     async def _runner() -> None:
         async with PlaywrightToolset(
             screenshot_dir=config.screenshot_dir,
             headless=headless,
             user_agent=user_agent,
+            grid_rows=ui_grid_rows,
+            grid_cols=ui_grid_cols,
+            viewport_width=ui_viewport_width,
+            viewport_height=ui_viewport_height,
         ) as tools:
             agent = VisualScraperAgent(config=config, toolset=tools, llm=llm)
             result = await agent.run(goal)

@@ -35,16 +35,20 @@ class PlaywrightToolset:
         self,
         *,
         screenshot_dir: Path,
-        grid_rows: int = 12,
-        grid_cols: int = 8,
+        grid_rows: int = 24,
+        grid_cols: int = 16,
         headless: bool = False,
         user_agent: Optional[str] = None,
+        viewport_width: int = 1600,
+        viewport_height: int = 900,
     ) -> None:
         self.screenshot_dir = screenshot_dir
         self.grid_rows = grid_rows
         self.grid_cols = grid_cols
         self.headless = headless
         self.user_agent = user_agent
+        self.viewport_width = viewport_width
+        self.viewport_height = viewport_height
         self._playwright = None
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
@@ -66,7 +70,9 @@ class PlaywrightToolset:
             context_args["user_agent"] = self.user_agent
         self.context = await self.browser.new_context(**context_args)
         self.page = await self.context.new_page()
-        await self.page.set_viewport_size({"width": 1280, "height": 720})
+        await self.page.set_viewport_size(
+            {"width": self.viewport_width, "height": self.viewport_height}
+        )
         logger.info("playwright_started", headless=self.headless)
 
     async def close(self) -> None:
