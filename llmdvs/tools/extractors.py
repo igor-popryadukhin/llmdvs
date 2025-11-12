@@ -37,32 +37,64 @@ class DOMExtractor:
           const candidates = Array.from(
             document.querySelectorAll('[data-llmdvs-item], article, li, .card, .item')
           );
-          const visible = candidates.filter(el => {
-            const rect = el.getBoundingClientRect();
-            if (rect.width < 120 || rect.height < 80) {
-              return false;
-            }
-            const style = window.getComputedStyle(el);
-            return style && style.display !== 'none' && style.visibility !== 'hidden';
-          }).slice(0, 80);
-          return visible.map(el => {
-            const titleEl = el.querySelector('[data-llmdvs-title], h1, h2, h3, h4, .title, .name');
-            const priceEl = el.querySelector('[data-llmdvs-price], [class*="price" i], [data-price], [itemprop="price"]');
-            const linkEl = el.querySelector('a[href]');
-            const attrs = {};
-            el.querySelectorAll('[data-attribute]').forEach(attr => {
-              const key = attr.getAttribute('data-attribute');
-              if (key) {
-                attrs[key] = attr.textContent.trim();
+          const visible = candidates
+            .filter(el => {
+              const rect = el.getBoundingClientRect();
+              if (rect.width < 120 || rect.height < 80) {
+                return false;
               }
-            });
-            return {
-              title: titleEl ? titleEl.textContent.trim() : el.textContent.trim().slice(0, 120),
-              price: priceEl ? priceEl.textContent.trim() : null,
-              link: linkEl ? linkEl.href : null,
-              attrs,
-            };
-          }).filter(item => item.title);
+              const style = window.getComputedStyle(el);
+              return style && style.display !== 'none' && style.visibility !== 'hidden';
+            })
+            .slice(0, 80);
+          const firstFilled = (...values) => {
+            for (const value of values) {
+              if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (trimmed) {
+                  return trimmed;
+                }
+              }
+            }
+            return '';
+          };
+          return visible
+            .map(el => {
+              const titleEl = el.querySelector('[data-llmdvs-title], h1, h2, h3, h4, .title, .name');
+              const priceEl = el.querySelector('[data-llmdvs-price], [class*="price" i], [data-price], [itemprop="price"]');
+              const linkEl = el.querySelector('a[href]');
+              const attrs = {};
+              el.querySelectorAll('[data-attribute]').forEach(attr => {
+                const key = attr.getAttribute('data-attribute');
+                if (key) {
+                  attrs[key] = attr.textContent.trim();
+                }
+              });
+              const priceCandidate = firstFilled(
+                priceEl && priceEl.textContent,
+                priceEl && priceEl.getAttribute && priceEl.getAttribute('content'),
+                priceEl && priceEl.getAttribute && priceEl.getAttribute('data-price'),
+                priceEl && priceEl.getAttribute && priceEl.getAttribute('data-price-amount'),
+                priceEl && priceEl.getAttribute && priceEl.getAttribute('aria-label'),
+                priceEl && priceEl.getAttribute && priceEl.getAttribute('title'),
+                el.getAttribute('data-price'),
+                el.getAttribute('data-price-amount')
+              );
+              if (!priceCandidate) {
+                return null;
+              }
+              const item = {
+                title: titleEl ? titleEl.textContent.trim() : el.textContent.trim().slice(0, 120),
+                price: priceCandidate,
+                attrs,
+              };
+              if (linkEl && linkEl.href) {
+                item.link = linkEl.href;
+              }
+              return item;
+            })
+            .filter(Boolean)
+            .filter(item => item.title && item.price);
         }
         """
         return await self.page.evaluate(script)
